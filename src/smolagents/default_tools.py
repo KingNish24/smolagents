@@ -524,12 +524,62 @@ class SpeechToTextTool(PipelineTool):
         return self.pre_processor.batch_decode(outputs, skip_special_tokens=True)[0]
 
 
+class FileReaderTool(Tool):
+    name = "file_reader"
+    description = "Reads a file. Supports various file formats."
+    inputs = {
+        "file_path": {
+            "type": "string",
+            "description": "The path to the file to read.",
+        }
+    }
+    output_type = "string"
+
+    def __init__(self, max_output_length: int = 40000):
+        super().__init__()
+        self.max_output_length = max_output_length
+
+    def _truncate_content(self, content: str, max_length: int) -> str:
+        if len(content) <= max_length:
+            return content
+        return (
+            content[: max_length // 2]
+            + f"\n..._This content has been truncated to stay below {max_length} characters_...\n"
+            + content[-max_length // 2 :]
+        )
+
+    def forward(self, file_path: str) -> str:
+        try:
+            from markitdown import MarkItDown
+        except ImportError as e:
+            raise ImportError(
+                "You must install package `markitdown` to run this tool: for instance run `pip install markitdown[all]`."
+            ) from e
+
+        try:
+            md = MarkItDown()
+            # Convert file content to markdown
+            markdown_content = md.convert_local(file_path).text_content.strip()
+            
+            # Remove multiple line breaks
+            import re
+            markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
+
+            return self._truncate_content(markdown_content, self.max_output_length)
+
+        except FileNotFoundError:
+            return f"Error: File not found at path '{file_path}'"
+        except Exception as e:
+            return f"An unexpected error occurred while reading the file: {str(e)}"
+
+
 TOOL_MAPPING = {
     tool_class.name: tool_class
     for tool_class in [
         PythonInterpreterTool,
         DuckDuckGoSearchTool,
         VisitWebpageTool,
+        FileReaderTool,
     ]
 }
 
@@ -543,4 +593,5 @@ __all__ = [
     "VisitWebpageTool",
     "WikipediaSearchTool",
     "SpeechToTextTool",
+    "FileReaderTool",
 ]
