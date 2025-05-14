@@ -351,22 +351,35 @@ class VisitWebpageTool(Tool):
     def forward(self, url: str) -> str:
         try:
             import re
-
+            import os
+            import tempfile
+            
             import requests
-            from markdownify import markdownify
+            from markitdown import MarkItDown
             from requests.exceptions import RequestException
+
+            md = MarkItDown()
+            
         except ImportError as e:
             raise ImportError(
-                "You must install packages `markdownify` and `requests` to run this tool: for instance run `pip install markdownify requests`."
+                "You must install packages `markitdown` and `requests` to run this tool: for instance run `pip install markitdown requests`."
             ) from e
         try:
             # Send a GET request to the URL with a 20-second timeout
             response = requests.get(url, timeout=20)
             response.raise_for_status()  # Raise an exception for bad status codes
 
-            # Convert the HTML content to Markdown
-            markdown_content = markdownify(response.text).strip()
+            # Save Content from requested url temporarily 
+            with tempfile.NamedTemporaryFile(mode="wb", delete=False) as temp_file:
+                temp_file.write(response.content)
+                temp_file_path = temp_file.name
 
+            # Convert content to markdown
+            markdown_content = md.convert_local(temp_file_path).text_content.strip()
+    
+            # Remove the temporary file
+            os.remove(temp_file_path)
+    
             # Remove multiple line breaks
             markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
 
