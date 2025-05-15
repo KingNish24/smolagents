@@ -510,6 +510,81 @@ class SpeechToTextTool(PipelineTool):
     def decode(self, outputs):
         return self.pre_processor.batch_decode(outputs, skip_special_tokens=True)[0]
 
+class RequestImportsTool(Tool):
+    """
+    A tool that allows the agent to request permission from the user to import specific libraries.
+    
+    If the user approves, the libraries will be added to the authorized_imports list of the PythonInterpreterTool.
+    """
+    name = "request_imports"
+    description = "Asks the user for permission to import specific Python libraries."
+    inputs = {
+        "libraries": {
+            "type": "array",
+            "description": "List of Python libraries that the agent wants to import.",
+            "items": {"type": "string"}
+        }
+    }
+    output_type = "object"
+    
+    def __init__(self, python_interpreter_tool=None, *args, **kwargs):
+        """
+        Initialize the RequestImportsTool.
+        
+        Args:
+            python_interpreter_tool: The PythonInterpreterTool instance whose authorized_imports will be updated
+                                     if the user approves the request.
+        """
+        super().__init__(*args, **kwargs)
+        self.python_interpreter_tool = python_interpreter_tool
+        
+    def forward(self, libraries: List[str]) -> dict:
+        """
+        Ask the user for permission to import the specified libraries.
+        
+        Args:
+            libraries: List of Python libraries that the agent wants to import.
+            
+        Returns:
+            A dictionary containing the approval status and the list of approved libraries.
+        """
+        if not libraries:
+            return {"approved": False, "message": "No libraries specified.", "approved_libraries": []}
+        
+        # Format the libraries for display
+        libraries_str = ", ".join(f"`{lib}`" for lib in libraries)
+        
+        # Ask for user permission
+        prompt = f"Do you want to allow the agent to import these libraries: {libraries_str}? (yes/no)"
+        user_input = input(f"{prompt} => Type your answer here:")
+        
+        # Process the user's response
+        cleaned_input = user_input.lower().strip()
+        approved = cleaned_input in ["yes", "y"]
+        
+        if approved and self.python_interpreter_tool is not None:
+            # Add the libraries to the authorized_imports list
+            self.python_interpreter_tool.authorized_imports.extend(libraries)
+            # Remove duplicates
+            self.python_interpreter_tool.authorized_imports = list(set(self.python_interpreter_tool.authorized_imports))
+            
+            return {
+                "approved": True, 
+                "message": f"Libraries {libraries_str} have been approved for import.",
+                "approved_libraries": libraries
+            }
+        elif approved:
+            return {
+                "approved": True, 
+                "message": "Libraries approved, but no Python interpreter tool was provided to update.",
+                "approved_libraries": libraries
+            }
+        else:
+            return {
+                "approved": False, 
+                "message": f"Permission to import libraries {libraries_str} was denied.",
+                "approved_libraries": []
+            }
 
 TOOL_MAPPING = {
     tool_class.name: tool_class
@@ -517,6 +592,7 @@ TOOL_MAPPING = {
         PythonInterpreterTool,
         DuckDuckGoSearchTool,
         VisitWebpageTool,
+        RequestImportsTool,
     ]
 }
 
@@ -530,4 +606,5 @@ __all__ = [
     "VisitWebpageTool",
     "WikipediaSearchTool",
     "SpeechToTextTool",
+    "RequestImportsTool",
 ]
