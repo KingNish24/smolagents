@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 from .local_python_executor import (
     BASE_BUILTIN_MODULES,
