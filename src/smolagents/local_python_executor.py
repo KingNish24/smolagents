@@ -1139,7 +1139,9 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
 def evaluate_import(expression, state, authorized_imports):
     if isinstance(expression, ast.Import):
         for alias in expression.names:
-            if check_import_authorized(alias.name, authorized_imports):
+            # Get the base module name (e.g., 'matplotlib' from 'matplotlib.pyplot')
+            base_module = alias.name.split('.')[0]
+            if check_import_authorized(base_module, authorized_imports):
                 raw_module = import_module(alias.name)
                 state[alias.asname or alias.name] = get_safe_module(raw_module, authorized_imports)
             else:
@@ -1148,7 +1150,9 @@ def evaluate_import(expression, state, authorized_imports):
                 )
         return None
     elif isinstance(expression, ast.ImportFrom):
-        if check_import_authorized(expression.module, authorized_imports):
+        # Get the base module name for from imports as well
+        base_module = expression.module.split('.')[0]
+        if check_import_authorized(base_module, authorized_imports):
             raw_module = __import__(expression.module, fromlist=[alias.name for alias in expression.names])
             module = get_safe_module(raw_module, authorized_imports)
             if expression.names[0].name == "*":  # Handle "from module import *"
