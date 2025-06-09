@@ -6,6 +6,8 @@ from smolagents.models import ChatMessage, MessageRole
 from smolagents.monitoring import AgentLogger, LogLevel, Timing, TokenUsage
 from smolagents.utils import AgentError, make_json_serializable
 
+from loadaudio import load_audio
+
 
 if TYPE_CHECKING:
     import PIL.Image
@@ -59,8 +61,10 @@ class ActionStep(MemoryStep):
     model_output: str | None = None
     observations: str | None = None
     observations_images: list["PIL.Image.Image"] | None = None
+    observations_audio: list[str] | None = None
     action_output: Any = None
     token_usage: TokenUsage | None = None
+
 
     def dict(self):
         # We overwrite the method to parse the tool_calls and action_output manually
@@ -107,6 +111,23 @@ class ActionStep(MemoryStep):
                             "image": image,
                         }
                         for image in self.observations_images
+                    ],
+                )
+            )
+
+        if self.observations_audio:
+            messages.append(
+                Message(
+                    role=MessageRole.USER,
+                    content=[
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": load_audio(audio, output_type="base64"),
+                                "format": "wav",
+                            },
+                        }
+                        for audio in self.observations_audio
                     ],
                 )
             )
